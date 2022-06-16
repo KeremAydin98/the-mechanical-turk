@@ -19,18 +19,23 @@ class ChessEnv:
         self.block_size = frame_size // 8
         self.game_window = pygame.display.set_mode((self.frame_size_x, self.frame_size_y))
 
-        self.all_positions = {"white": {"rook": [[0, 0], [7, 0]],
+        self.sides = ["white","black"]
+
+        self.white_pieces = {"rook": [[0, 0], [7, 0]],
                                         "knight": [[1, 0], [6, 0]],
                                         "bishop": [[2, 0], [5, 0]],
                                         "king": [[3, 0]],
                                         "queen": [[4, 0]],
-                                        "pawn": [[pos, 1] for pos in range(8)]},
-                              "black": {"rook": [[0, 7], [7, 7]],
+                                        "pawn": [[pos, 1] for pos in range(8)]}
+
+        self.black_pieces = {"rook": [[0, 7], [7, 7]],
                                         "knight": [[1, 7], [6, 7]],
                                         "bishop": [[2, 7], [5, 7]],
                                         "king": [[3, 7]],
                                         "queen": [[4, 7]],
-                                        "pawn": [[pos, 6] for pos in range(8)]}}
+                                        "pawn": [[pos, 6] for pos in range(8)]}
+
+        self.all_positions = {"white":self.white_pieces, "black":self.black_pieces}
 
         self.reset()
 
@@ -56,11 +61,11 @@ class ChessEnv:
 
     def put_pieces(self):
 
-        sides = ["white","black"]
+        all_sides = {"white":self.white_pieces, "black":self.black_pieces}
 
-        for side in sides:
+        for side, pieces in all_sides.items():
 
-            for name, position in self.all_positions[side].items():
+            for name, position in pieces.items():
 
                 one_piece = pygame.image.load("pieces/" + side[0] + "_" + name + ".png")
                 one_piece = pygame.transform.scale(one_piece, (self.block_size, self.block_size))
@@ -73,11 +78,38 @@ class ChessEnv:
 
     def move_piece(self, side, which_piece, position):
 
-        self.all_positions[side][which_piece[0]][which_piece[1]] = position
+        if side == "white":
+
+            self.white_pieces[which_piece[0]][which_piece[1]] = position
+
+        else:
+
+            self.black_pieces[which_piece[0]][which_piece[1]] = position
+
+    def eat_piece(self, side, which_piece, move):
+
+        if side == "white":
+
+            for name, positions in self.black_pieces.items():
+
+                    for i, position in enumerate(positions):
+
+                        if move == position and which_piece[0] != "king":
+
+                            self.black_pieces[name][i] = [8,8]
+
+        else:
+
+            for name, positions in self.white_pieces.items():
+
+                    for i, position in enumerate(positions):
+
+                        if move == position and which_piece[0] != "king":
+
+                            self.white_pieces[name][i] = [8,8]
 
     def available_moves(self, side, event, mouse_pos=None):
 
-        ok_red_dots = None
         which_piece = None
 
         if event.type == pygame.QUIT:
@@ -87,57 +119,71 @@ class ChessEnv:
         if mouse_pos:
 
             red_dots, which_piece = self.show_possible_moves(side, mouse_pos)
+            moving_positions = []
 
             if not np.array_equal(red_dots, [[0,0]]):
                 for direction in red_dots:
 
-                    print("direction",direction, which_piece)
                     ok_red_dots = self.dont_get_pass(side, direction, which_piece)
 
-                    print("red dots", ok_red_dots, which_piece)
-
                     if not ok_red_dots:
-                        break
+                        continue
 
                     for real_dot in ok_red_dots:
+                        # Change the location of the red dot to the center of the square
                         draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
+                        # Draw circle on the possible moves
                         pygame.draw.circle(self.game_window, RED, draw_dot, 10)
+                        # Add the real_dot to moving positions
+                        moving_positions.append(real_dot)
 
-                    return ok_red_dots, which_piece
 
-        return ok_red_dots, which_piece
+        return moving_positions, which_piece
 
-    # red dots should stop after being close to an allied piece
+    # Possible moves are restricted by other pieces
     def dont_get_pass(self, side, direction, which_piece):
 
-        all_positions = []
+        same_side = []
+        opp_side = []
 
-        for positions in self.all_positions[side].values():
-
+        for positions in self.white_pieces.values():
             for position in positions:
-                all_positions.append(position)
+                if side == "white":
+                    same_side.append(position)
+                else:
+                    opp_side.append(position)
+
+        for positions in self.black_pieces.values():
+            for position in positions:
+                if side == "black":
+                    same_side.append(position)
+                else:
+                    opp_side.append(position)
+
+        all_sides = same_side + opp_side
 
         ok_red_dots = []
 
-        if side == "black":
-
-            direction.reverse()
-
         for dot in direction:
 
-            dont = True
+            next_dot = False
 
-            for pos in all_positions:
+            for piece in all_sides:
 
-                if math.dist(pos, dot) < 1 and which_piece[0] != "knight":
+                if math.dist(dot, piece) < 0.5 and piece in same_side and which_piece[0] != "knight":
 
                     return ok_red_dots
 
-                elif which_piece[0] == "knight" and math.dist(pos, dot) < 1:
+                elif math.dist(dot, piece) < 0.5 and piece in opp_side and which_piece[0] != "knight":
 
-                    dont = False
+                    ok_red_dots.append(dot)
+                    return ok_red_dots
 
-            if dont:
+                elif math.dist(dot, piece) < 0.5 and piece in same_side and which_piece[0] == "knight":
+
+                    next_dot = True
+
+            if not next_dot:
                 ok_red_dots.append(dot)
 
         return ok_red_dots
@@ -159,16 +205,16 @@ class ChessEnv:
             if math.dist(mouse_pos, piece_position) < 0.5:
 
                 right = np.add(piece_position,[[pos, 0] for pos in range(1,8)]).tolist()
-                left = np.add(piece_position,[[pos, 0] for pos in range(-1,-8,-1)]).tolist()
+                left = np.add(piece_position,[[-pos, 0] for pos in range(1,8)]).tolist()
                 up = np.add(piece_position,[[0, pos] for pos in range(1,8)]).tolist()
-                down = np.add(piece_position, [[0, pos] for pos in range(-1, -8,-1)]).tolist()
+                down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
 
                 return [up] + [right] + [down] + [left], ["rook",i]
 
         for i,piece_position in enumerate(self.all_positions[side]["bishop"]):
             if math.dist(mouse_pos, piece_position) < 0.5:
                 top_r = np.add(piece_position, [[pos, pos] for pos in range(1,8)]).tolist()
-                top_l = np.add(piece_position, [[-pos, pos] for pos in range(1,8)]).tolist()
+                top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1,8)]).tolist()
                 down_r = np.add(piece_position, [[pos, -pos] for pos in range(1,8)]).tolist()
                 down_l = np.add(piece_position, [[-pos, pos] for pos in range(1,8)]).tolist()
 
@@ -192,12 +238,12 @@ class ChessEnv:
             if math.dist(mouse_pos, piece_position) < 0.5:
 
                 right = np.add(piece_position, [[pos, 0] for pos in range(1, 8)]).tolist()
-                left = np.add(piece_position, [[pos, 0] for pos in range(-1, -8, -1)]).tolist()
+                left = np.add(piece_position, [[-pos, 0] for pos in range(1, 8)]).tolist()
                 up = np.add(piece_position, [[0, pos] for pos in range(1, 8)]).tolist()
-                down = np.add(piece_position, [[0, pos] for pos in range(-1, -8, -1)]).tolist()
+                down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
 
                 top_r = np.add(piece_position, [[pos, pos] for pos in range(1, 8)]).tolist()
-                top_l = np.add(piece_position, [[-pos, pos] for pos in range(1, 8)]).tolist()
+                top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1, 8)]).tolist()
                 down_r = np.add(piece_position, [[pos, -pos] for pos in range(1, 8)]).tolist()
                 down_l = np.add(piece_position, [[-pos, pos] for pos in range(1, 8)]).tolist()
 
@@ -227,20 +273,22 @@ while True:
 
             possible_moves, which_piece = chess_env.available_moves(side, event, pos)
 
-            print(possible_moves, which_piece)
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             pos = pygame.mouse.get_pos()
             pos = [element / chess_env.block_size for element in pos]
 
+            # Move the piece
             if possible_moves:
                 for move in possible_moves:
                     if math.dist(move, pos) < 0.5:
                         chess_env.move_piece(side, which_piece, move)
-                        possible_moves = None
                         side_n += 1
-                        print("all position",chess_env.all_positions)
-            print("possible_move", possible_moves)
+                        possible_moves = None
+
+                        chess_env.eat_piece(side, which_piece, move)
+
+                        break
+
             chess_env.reset()
 
     pygame.display.update()
