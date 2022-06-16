@@ -1,4 +1,4 @@
-# the-turk
+# the-mechanical-turk
 Chess AI using reinforcement learning
 
 ## Preview
