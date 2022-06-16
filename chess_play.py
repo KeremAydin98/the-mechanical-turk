@@ -1,10 +1,10 @@
 import pygame, math
-from chessEnvironment import chess_env
+from chessEnvironment import ChessEnv
 from pygame.surfarray import array3d
 
 pygame.init()
 
-Chess = chess_env(800)
+Chess = ChessEnv(800)
 pygame.display.set_caption("Chess Game")
 side_n = 1
 
@@ -42,4 +42,4 @@ while True:
             Chess.reset()
 
     pygame.display.update()
-    img = array3d(chess_env.game_window)
+    img = array3d(Chess.game_window)
