@@ -1,5 +1,4 @@
 import pygame, sys, math
-from pygame.surfarray import array3d
 import numpy as np
 
 BLACK = pygame.Color(0, 0, 0)
@@ -250,47 +249,3 @@ class ChessEnv:
                 return [right] + [left] + [up] + [down] + [top_r] + [top_l] + [down_r] + [down_l], ["queen",i]
 
         return [[0,0]], False
-
-
-pygame.init()
-
-chess_env = ChessEnv(800)
-pygame.display.set_caption("Chess Game")
-side_n = 1
-
-while True:
-
-    if side_n % 2 == 1:
-        side = "white"
-    else:
-        side = "black"
-
-    for event in pygame.event.get():
-
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            pos = pygame.mouse.get_pos()
-            pos = [element/chess_env.block_size for element in pos]
-
-            possible_moves, which_piece = chess_env.available_moves(side, event, pos)
-
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-            pos = pygame.mouse.get_pos()
-            pos = [element / chess_env.block_size for element in pos]
-
-            # Move the piece
-            if possible_moves:
-                for move in possible_moves:
-                    if math.dist(move, pos) < 0.5:
-                        chess_env.move_piece(side, which_piece, move)
-                        side_n += 1
-                        possible_moves = None
-
-                        chess_env.eat_piece(side, which_piece, move)
-
-                        break
-
-            chess_env.reset()
-
-    pygame.display.update()
-    img = array3d(chess_env.game_window)
-
