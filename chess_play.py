@@ -1,6 +1,10 @@
 import pygame, math
 from chessEnvironment import ChessEnv
 from pygame.surfarray import array3d
+import numpy as np
+
+# To turn of the filter warnings of numpy
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 pygame.init()
 
@@ -22,6 +26,7 @@ while True:
             pos = [element/Chess.block_size for element in pos]
 
             possible_moves, which_piece = Chess.available_moves(side, event, pos)
+            print(Chess.white_possible_moves)
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             pos = pygame.mouse.get_pos()
@@ -31,11 +36,14 @@ while True:
             if possible_moves:
                 for move in possible_moves:
                     if math.dist(move, pos) < 0.5:
+
                         Chess.move_piece(side, which_piece, move)
                         side_n += 1
                         possible_moves = None
 
                         Chess.eat_piece(side, which_piece, move)
+
+
 
                         break
 

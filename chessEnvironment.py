@@ -39,6 +39,9 @@ class ChessEnv:
         # To check whether the pawn can move two squares in one turn or not
         self.first_pawn_moves = {"white":[True]*8,"black":[True]*8}
 
+        self.white_possible_moves = self.update_possible_moves(side="white")
+        self.black_possible_moves = self.update_possible_moves(side="black")
+
         self.reset()
 
     def reset(self):
@@ -78,6 +81,28 @@ class ChessEnv:
                     pygame.draw.rect(self.game_window, BLUE, pos + [5] + [5])
                     self.game_window.blit(one_piece, pos)
 
+    def check_for_check(self, side, moving_positions):
+
+        if side == "white":
+
+            if self.black_pieces["king"][0] in moving_positions:
+
+                return True
+
+            else:
+
+                return False
+
+        else:
+
+            if self.white_pieces["king"][0] in moving_positions:
+
+                return True
+
+            else:
+
+                return False
+
     def move_piece(self, side, which_piece, position):
 
         if side == "white":
@@ -106,6 +131,8 @@ class ChessEnv:
                         if move == position and which_piece[0] != "king":
 
                             self.black_pieces[name][i] = [8,8]
+                            self.white_possible_moves = self.update_possible_moves(side="white")
+                            self.black_possible_moves = self.update_possible_moves(side="black")
 
         else:
 
@@ -116,6 +143,8 @@ class ChessEnv:
                         if move == position and which_piece[0] != "king":
 
                             self.white_pieces[name][i] = [8,8]
+                            self.white_possible_moves = self.update_possible_moves(side="white")
+                            self.black_possible_moves = self.update_possible_moves(side="black")
 
     def available_moves(self, side, event, mouse_pos=None):
 
@@ -125,26 +154,41 @@ class ChessEnv:
             pygame.quit()
             sys.exit()
 
-        if mouse_pos:
+        moving_positions = []
 
-            red_dots, which_piece= self.show_possible_moves(side, mouse_pos)
-            moving_positions = []
+        if mouse_pos and side == "white":
 
-            if not np.array_equal(red_dots, [[0,0]]):
-                for direction in red_dots:
+            for piece_name, values in self.white_pieces.items():
 
-                    ok_red_dots = self.dont_get_pass(side, direction, which_piece)
+                for i, value in enumerate(values):
 
-                    if not ok_red_dots:
-                        continue
+                    if math.dist(value, mouse_pos) < 0.5:
 
-                    for real_dot in ok_red_dots:
-                        # Change the location of the red dot to the center of the square
-                        draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
-                        # Draw circle on the possible moves
-                        pygame.draw.circle(self.game_window, RED, draw_dot, 10)
-                        # Add the real_dot to moving positions
-                        moving_positions.append(real_dot)
+                        moving_positions = self.white_possible_moves[piece_name][i]
+                        which_piece = [piece_name, i]
+
+                for real_dot in moving_positions:
+                    # Change the location of the red dot to the center of the square
+                    draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
+                    # Draw circle on the possible moves
+                    pygame.draw.circle(self.game_window, RED, draw_dot, 10)
+
+        elif mouse_pos and side == "black":
+
+            for piece_name, values in self.black_pieces.items():
+
+                for i, value in enumerate(values):
+
+                    if math.dist(value, mouse_pos) < 0.5:
+
+                        moving_positions = self.black_possible_moves[piece_name][i]
+                        which_piece = [piece_name, i]
+
+                for real_dot in moving_positions:
+                    # Change the location of the red dot to the center of the square
+                    draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
+                    # Draw circle on the possible moves
+                    pygame.draw.circle(self.game_window, RED, draw_dot, 10)
 
         return moving_positions, which_piece
 
@@ -206,101 +250,161 @@ class ChessEnv:
 
         return ok_red_dots
 
-    def show_possible_moves(self, side, mouse_pos):
+    def update_possible_moves(self, side):
+
+        possible_moves = {"rook": [], "knight": [], "bishop": [], "king": [], "queen": [], "pawn": []}
 
         for i,piece_position in enumerate(self.all_positions[side]["pawn"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
 
-                if side == "black" and self.first_pawn_moves[side][i]:
+            if side == "black" and self.first_pawn_moves[side][i]:
 
-                    move = np.add(piece_position,[[0,1],[0,2]]).tolist()
+                move = np.add(piece_position,[[0,1],[0,2]]).tolist()
 
-                    eat_l = np.add(piece_position,[-1,1]).tolist()
-                    eat_r = np.add(piece_position, [1, 1]).tolist()
+                eat_l = np.add(piece_position,[-1,1]).tolist()
+                eat_r = np.add(piece_position, [1, 1]).tolist()
 
-                    return [move] + [[eat_l]] + [[eat_r]], ["pawn",i]
+                all_directions = [move] + [[eat_l]] + [[eat_r]]
+                which_piece = ["pawn", i]
 
-                elif side == "black" and not self.first_pawn_moves[side][i]:
+                for direction in all_directions:
+                    possible_move = self.dont_get_pass(side, direction, which_piece)
+                    possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                    if len(possible_move) != 0:
+                        possible_moves["pawn"].append(possible_move)
 
-                    move = np.add(piece_position, [0, 1]).tolist()
+            elif side == "black" and not self.first_pawn_moves[side][i]:
 
-                    eat_l = np.add(piece_position, [-1, 1]).tolist()
-                    eat_r = np.add(piece_position, [1, 1]).tolist()
+                move = np.add(piece_position, [0, 1]).tolist()
 
-                    return [[move]] + [[eat_l]] + [[eat_r]], ["pawn", i]
+                eat_l = np.add(piece_position, [-1, 1]).tolist()
+                eat_r = np.add(piece_position, [1, 1]).tolist()
 
-                elif side == "white" and self.first_pawn_moves[side][i]:
+                all_directions = [[move]] + [[eat_l]] + [[eat_r]]
+                which_piece = ["pawn", i]
 
-                    move = np.add(piece_position, [[0, -1], [0, -2]]).tolist()
+                for direction in all_directions:
+                    possible_move = self.dont_get_pass(side, direction, which_piece)
+                    possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                    if len(possible_move) != 0:
+                        possible_moves["pawn"].append(possible_move)
 
-                    eat_l = np.add(piece_position, [-1, -1]).tolist()
-                    eat_r = np.add(piece_position, [1, -1]).tolist()
+            elif side == "white" and self.first_pawn_moves[side][i]:
 
-                    return [move] + [[eat_l]] + [[eat_r]], ["pawn", i]
+                move = np.add(piece_position, [[0, -1], [0, -2]]).tolist()
 
-                else:
+                eat_l = np.add(piece_position, [-1, -1]).tolist()
+                eat_r = np.add(piece_position, [1, -1]).tolist()
 
-                    move = np.add(piece_position, [0, -1]).tolist()
+                all_directions = [move] + [[eat_l]] + [[eat_r]]
+                which_piece = ["pawn", i]
 
-                    eat_l = np.add(piece_position, [-1, -1]).tolist()
-                    eat_r = np.add(piece_position, [1, -1]).tolist()
+                for direction in all_directions:
+                    possible_move = self.dont_get_pass(side, direction, which_piece)
+                    possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                    if len(possible_move) != 0:
+                        possible_moves["pawn"].append(possible_move)
 
-                    return [[move]] + [[eat_l]] + [[eat_r]], ["pawn", i]
+            else:
+
+                move = np.add(piece_position, [0, -1]).tolist()
+
+                eat_l = np.add(piece_position, [-1, -1]).tolist()
+                eat_r = np.add(piece_position, [1, -1]).tolist()
+
+                all_directions = [[move]] + [[eat_l]] + [[eat_r]]
+                which_piece = ["pawn", i]
+
+                for direction in all_directions:
+                    possible_move = self.dont_get_pass(side, direction, which_piece)
+                    possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                    if len(possible_move) != 0:
+                        possible_moves["pawn"].append(possible_move)
 
         for i,piece_position in enumerate(self.all_positions[side]["rook"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
 
-                right = np.add(piece_position,[[pos, 0] for pos in range(1,8)]).tolist()
-                left = np.add(piece_position,[[-pos, 0] for pos in range(1,8)]).tolist()
-                up = np.add(piece_position,[[0, pos] for pos in range(1,8)]).tolist()
-                down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
+            right = np.add(piece_position,[[pos, 0] for pos in range(1,8)]).tolist()
+            left = np.add(piece_position,[[-pos, 0] for pos in range(1,8)]).tolist()
+            up = np.add(piece_position,[[0, pos] for pos in range(1,8)]).tolist()
+            down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
 
-                return [up] + [right] + [down] + [left], ["rook",i]
+            all_directions = [up] + [right] + [down] + [left]
+            which_piece = ["rook",i]
+
+            for direction in all_directions:
+                possible_move = self.dont_get_pass(side, direction, which_piece)
+                possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                if len(possible_move) != 0:
+                    possible_moves["rook"].append(possible_move)
 
         for i,piece_position in enumerate(self.all_positions[side]["bishop"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
-                top_r = np.add(piece_position, [[pos, pos] for pos in range(1,8)]).tolist()
-                top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1,8)]).tolist()
-                down_r = np.add(piece_position, [[pos, -pos] for pos in range(1,8)]).tolist()
-                down_l = np.add(piece_position, [[-pos, pos] for pos in range(1,8)]).tolist()
 
-                return [top_r] + [top_l] + [down_r] + [down_l], ["bishop",i]
+            top_r = np.add(piece_position, [[pos, pos] for pos in range(1,8)]).tolist()
+            top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1,8)]).tolist()
+            down_r = np.add(piece_position, [[pos, -pos] for pos in range(1,8)]).tolist()
+            down_l = np.add(piece_position, [[-pos, pos] for pos in range(1,8)]).tolist()
+
+            all_directions = [top_r] + [top_l] + [down_r] + [down_l]
+            which_piece = ["bishop",i]
+
+            for direction in all_directions:
+                possible_move = self.dont_get_pass(side, direction, which_piece)
+                possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                if len(possible_move) != 0:
+                    possible_moves["bishop"].append(possible_move)
 
         for i,piece_position in enumerate(self.all_positions[side]["knight"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
 
-                moves = [[-2,-1],[-2,1],[2,-1],[2,1],[-1,-2],[-1,2],[1,-2],[1,2]]
+            moves = [[-2,-1],[-2,1],[2,-1],[2,1],[-1,-2],[-1,2],[1,-2],[1,2]]
 
-                return [np.add(piece_position,[move for move in moves]).tolist()], ["knight",i]
+            all_directions = [np.add(piece_position,[move for move in moves]).tolist()]
+            which_piece = ["knight",i]
+
+            for direction in all_directions:
+                possible_move = self.dont_get_pass(side, direction, which_piece)
+                possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                if len(possible_move) != 0:
+                    possible_moves["knight"].append(possible_move)
 
         for i,piece_position in enumerate(self.all_positions[side]["king"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
 
-                right = np.add(piece_position, [1,0]).tolist()
-                left = np.add(piece_position, [-1,0]).tolist()
-                up = np.add(piece_position, [0,-1]).tolist()
-                down = np.add(piece_position, [0, 1]).tolist()
+            right = np.add(piece_position, [1,0]).tolist()
+            left = np.add(piece_position, [-1,0]).tolist()
+            up = np.add(piece_position, [0,-1]).tolist()
+            down = np.add(piece_position, [0, 1]).tolist()
 
-                top_r = np.add(piece_position, [1,-1]).tolist()
-                top_l = np.add(piece_position, [-1,-1]).tolist()
-                down_r = np.add(piece_position, [1,1]).tolist()
-                down_l = np.add(piece_position, [-1,1]).tolist()
+            top_r = np.add(piece_position, [1,-1]).tolist()
+            top_l = np.add(piece_position, [-1,-1]).tolist()
+            down_r = np.add(piece_position, [1,1]).tolist()
+            down_l = np.add(piece_position, [-1,1]).tolist()
 
-                return [[right]] + [[left]] + [[up]] + [[down]] + [[top_r]] + [[top_l]] + [[down_r]] + [[down_l]], ["king",i]
+            all_directions = [[right]] + [[left]] + [[up]] + [[down]] + [[top_r]] + [[top_l]] + [[down_r]] + [[down_l]]
+            which_piece = ["king", i]
+
+            for direction in all_directions:
+                possible_move = self.dont_get_pass(side, direction, which_piece)
+                possible_move = list(filter(lambda x: 0 <= x[0] <= 7 and 0 <= x[1] <= 7, possible_move))
+                if len(possible_move) != 0:
+                    possible_moves["king"].append(possible_move)
 
         for i,piece_position in enumerate(self.all_positions[side]["queen"]):
-            if math.dist(mouse_pos, piece_position) < 0.5:
 
-                right = np.add(piece_position, [[pos, 0] for pos in range(1, 8)]).tolist()
-                left = np.add(piece_position, [[-pos, 0] for pos in range(1, 8)]).tolist()
-                up = np.add(piece_position, [[0, pos] for pos in range(1, 8)]).tolist()
-                down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
+            right = np.add(piece_position, [[pos, 0] for pos in range(1, 8)]).tolist()
+            left = np.add(piece_position, [[-pos, 0] for pos in range(1, 8)]).tolist()
+            up = np.add(piece_position, [[0, pos] for pos in range(1, 8)]).tolist()
+            down = np.add(piece_position, [[0, -pos] for pos in range(1, 8)]).tolist()
 
-                top_r = np.add(piece_position, [[pos, pos] for pos in range(1, 8)]).tolist()
-                top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1, 8)]).tolist()
-                down_r = np.add(piece_position, [[pos, -pos] for pos in range(1, 8)]).tolist()
-                down_l = np.add(piece_position, [[-pos, pos] for pos in range(1, 8)]).tolist()
+            top_r = np.add(piece_position, [[pos, pos] for pos in range(1, 8)]).tolist()
+            top_l = np.add(piece_position, [[-pos, -pos] for pos in range(1, 8)]).tolist()
+            down_r = np.add(piece_position, [[pos, -pos] for pos in range(1, 8)]).tolist()
+            down_l = np.add(piece_position, [[-pos, pos] for pos in range(1, 8)]).tolist()
 
-                return [right] + [left] + [up] + [down] + [top_r] + [top_l] + [down_r] + [down_l], ["queen",i]
+            all_directions = [right] + [left] + [up] + [down] + [top_r] + [top_l] + [down_r] + [down_l]
+            which_piece = ["queen", i]
 
-        return [[0,0]], False
+            for direction in all_directions:
+                possible_move = self.dont_get_pass(side, direction, which_piece)
+                possible_move = list(filter(lambda x: 0<=x[0]<=7 and 0<=x[1]<=7, possible_move))
+                if len(possible_move) != 0:
+                    possible_moves["queen"].append(possible_move)
+
+        return possible_moves
