@@ -20,14 +20,14 @@ class ChessEnv:
 
         self.sides = ["white","black"]
 
-        self.white_pieces = {"rook": [[0, 0], [7, 0]],
+        self.black_pieces = {"rook": [[0, 0], [7, 0]],
                                         "knight": [[1, 0], [6, 0]],
                                         "bishop": [[2, 0], [5, 0]],
                                         "king": [[3, 0]],
                                         "queen": [[4, 0]],
                                         "pawn": [[pos, 1] for pos in range(8)]}
 
-        self.black_pieces = {"rook": [[0, 7], [7, 7]],
+        self.white_pieces = {"rook": [[0, 7], [7, 7]],
                                         "knight": [[1, 7], [6, 7]],
                                         "bishop": [[2, 7], [5, 7]],
                                         "king": [[3, 7]],
@@ -35,6 +35,9 @@ class ChessEnv:
                                         "pawn": [[pos, 6] for pos in range(8)]}
 
         self.all_positions = {"white":self.white_pieces, "black":self.black_pieces}
+
+        # To check whether the pawn can move two squares in one turn or not
+        self.first_pawn_moves = {"white":[True]*8,"black":[True]*8}
 
         self.reset()
 
@@ -81,9 +84,16 @@ class ChessEnv:
 
             self.white_pieces[which_piece[0]][which_piece[1]] = position
 
+            if which_piece[0] == "pawn":
+
+                self.first_pawn_moves[side][which_piece[1]] = False
+
         else:
 
             self.black_pieces[which_piece[0]][which_piece[1]] = position
+
+            if which_piece[0] == "pawn":
+                self.first_pawn_moves[side][which_piece[1]] = False
 
     def eat_piece(self, side, which_piece, move):
 
@@ -117,7 +127,7 @@ class ChessEnv:
 
         if mouse_pos:
 
-            red_dots, which_piece = self.show_possible_moves(side, mouse_pos)
+            red_dots, which_piece= self.show_possible_moves(side, mouse_pos)
             moving_positions = []
 
             if not np.array_equal(red_dots, [[0,0]]):
@@ -135,7 +145,6 @@ class ChessEnv:
                         pygame.draw.circle(self.game_window, RED, draw_dot, 10)
                         # Add the real_dot to moving positions
                         moving_positions.append(real_dot)
-
 
         return moving_positions, which_piece
 
@@ -175,14 +184,24 @@ class ChessEnv:
 
                 elif math.dist(dot, piece) < 0.5 and piece in opp_side and which_piece[0] != "knight":
 
+                    if which_piece[0] == "pawn" and self.all_positions[side][which_piece[0]][which_piece[1]][0] == dot[0]:
+
+                        return ok_red_dots
+
                     ok_red_dots.append(dot)
+
                     return ok_red_dots
 
                 elif math.dist(dot, piece) < 0.5 and piece in same_side and which_piece[0] == "knight":
 
                     next_dot = True
 
+            if which_piece[0] == "pawn" and self.all_positions[side][which_piece[0]][which_piece[1]][0] != dot[0]:
+
+                return ok_red_dots
+
             if not next_dot:
+
                 ok_red_dots.append(dot)
 
         return ok_red_dots
@@ -192,13 +211,41 @@ class ChessEnv:
         for i,piece_position in enumerate(self.all_positions[side]["pawn"]):
             if math.dist(mouse_pos, piece_position) < 0.5:
 
-                if side == "white":
+                if side == "black" and self.first_pawn_moves[side][i]:
 
-                    return [[np.add(piece_position,[0,1]).tolist()]],["pawn",i]
+                    move = np.add(piece_position,[[0,1],[0,2]]).tolist()
+
+                    eat_l = np.add(piece_position,[-1,1]).tolist()
+                    eat_r = np.add(piece_position, [1, 1]).tolist()
+
+                    return [move] + [[eat_l]] + [[eat_r]], ["pawn",i]
+
+                elif side == "black" and not self.first_pawn_moves[side][i]:
+
+                    move = np.add(piece_position, [0, 1]).tolist()
+
+                    eat_l = np.add(piece_position, [-1, 1]).tolist()
+                    eat_r = np.add(piece_position, [1, 1]).tolist()
+
+                    return [[move]] + [[eat_l]] + [[eat_r]], ["pawn", i]
+
+                elif side == "white" and self.first_pawn_moves[side][i]:
+
+                    move = np.add(piece_position, [[0, -1], [0, -2]]).tolist()
+
+                    eat_l = np.add(piece_position, [-1, -1]).tolist()
+                    eat_r = np.add(piece_position, [1, -1]).tolist()
+
+                    return [move] + [[eat_l]] + [[eat_r]], ["pawn", i]
 
                 else:
 
-                    return [[np.add(piece_position,[0, -1]).tolist()]], ["pawn",i]
+                    move = np.add(piece_position, [0, -1]).tolist()
+
+                    eat_l = np.add(piece_position, [-1, -1]).tolist()
+                    eat_r = np.add(piece_position, [1, -1]).tolist()
+
+                    return [[move]] + [[eat_l]] + [[eat_r]], ["pawn", i]
 
         for i,piece_position in enumerate(self.all_positions[side]["rook"]):
             if math.dist(mouse_pos, piece_position) < 0.5:
@@ -229,9 +276,17 @@ class ChessEnv:
         for i,piece_position in enumerate(self.all_positions[side]["king"]):
             if math.dist(mouse_pos, piece_position) < 0.5:
 
-                moves = [[-1,-1],[-1,1],[-1,0],[0,-1],[0,1],[1,-1],[1,1],[1,0]]
+                right = np.add(piece_position, [1,0]).tolist()
+                left = np.add(piece_position, [-1,0]).tolist()
+                up = np.add(piece_position, [0,-1]).tolist()
+                down = np.add(piece_position, [0, 1]).tolist()
 
-                return [np.add(piece_position, [move for move in moves]).tolist()], ["king",i]
+                top_r = np.add(piece_position, [1,-1]).tolist()
+                top_l = np.add(piece_position, [-1,-1]).tolist()
+                down_r = np.add(piece_position, [1,1]).tolist()
+                down_l = np.add(piece_position, [-1,1]).tolist()
+
+                return [[right]] + [[left]] + [[up]] + [[down]] + [[top_r]] + [[top_l]] + [[down_r]] + [[down_l]], ["king",i]
 
         for i,piece_position in enumerate(self.all_positions[side]["queen"]):
             if math.dist(mouse_pos, piece_position) < 0.5:
