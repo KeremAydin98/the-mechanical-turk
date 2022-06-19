@@ -42,6 +42,9 @@ class ChessEnv:
         self.white_possible_moves = self.update_possible_moves(side="white")
         self.black_possible_moves = self.update_possible_moves(side="black")
 
+        self.white_rockable = {"short":True,"long":True}
+        self.black_rockable = {"short": True, "long": True}
+
         self.reset()
 
     def reset(self):
@@ -84,17 +87,17 @@ class ChessEnv:
                     pygame.draw.rect(self.game_window, BLUE, pos + [5] + [5])
                     self.game_window.blit(one_piece, pos)
 
+    def rockin_roll(self, side):
+
+        pass
+
+    # looks if there is a check
     def check_for_check(self, side):
 
         if side == "white":
-            print("#######")
-            print("white moves",self.white_possible_moves)
             for piece, white_moves in self.white_possible_moves.items():
                 for moves in white_moves.values():
                     for move in moves:
-                        print("move", move)
-                        print("b_king",self.black_pieces["king"][0])
-                        print("-------------")
                         if self.black_pieces["king"][0] in move:
 
                             return True
@@ -110,7 +113,7 @@ class ChessEnv:
 
         return False
 
-    def get_rid_of_checks(self, side, possible_moves, which_piece):
+    def get_rid_of_checks(self, side, possible_moves, which_piece, check_piece):
 
         check_crasher_moves = []
 
@@ -120,13 +123,26 @@ class ChessEnv:
 
                 for move in direction:
 
-                    old_white_pos = self.white_pieces
-                    self.white_pieces[which_piece[0]][which_piece[1]] = move
-                    if self.check_for_check(side="black"):
-                        self.white_pieces = old_white_pos
+                    if move == self.black_pieces[check_piece[0]][check_piece[1]]:
+
+                        old_white_pos = self.white_pieces[which_piece[0]][which_piece[1]]
+                        self.eat_piece(side=side, which_piece=which_piece, move=move)
+
+                        if not self.check_for_check(side="black"):
+                            check_crasher_moves.append(move)
+
+                        self.white_pieces[which_piece[0]][which_piece[1]] = old_white_pos
+                        self.black_pieces[check_piece[0]][check_piece[1]] = move
+
                     else:
-                        self.white_pieces = old_white_pos
-                        check_crasher_moves.append(move)
+
+                        old_white_pos = self.white_pieces[which_piece[0]][which_piece[1]]
+                        self.white_pieces[which_piece[0]][which_piece[1]] = move
+
+                        if not self.check_for_check(side="black"):
+                            check_crasher_moves.append(move)
+
+                        self.white_pieces[which_piece[0]][which_piece[1]] = old_white_pos
 
         else:
 
@@ -134,13 +150,26 @@ class ChessEnv:
 
                 for move in direction:
 
-                    old_white_pos = self.black_pieces
-                    self.black_pieces[which_piece[0]][which_piece[1]] = move
-                    if self.check_for_check(side="white"):
-                        self.black_pieces = old_white_pos
+                    if move == self.white_pieces[check_piece[0]][check_piece[1]]:
+
+                        old_black_pos = self.black_pieces[which_piece[0]][which_piece[1]]
+                        self.eat_piece(side=side, which_piece=which_piece, move=move)
+
+                        if not self.check_for_check(side="white"):
+                            check_crasher_moves.append(move)
+
+                        self.black_pieces[which_piece[0]][which_piece[1]] = old_black_pos
+                        self.white_pieces[check_piece[0]][check_piece[1]] = move
+
                     else:
-                        self.black_pieces = old_white_pos
-                        check_crasher_moves.append(move)
+
+                        old_black_pos = self.black_pieces[which_piece[0]][which_piece[1]]
+                        self.black_pieces[which_piece[0]][which_piece[1]] = move
+
+                        if not self.check_for_check(side="white"):
+                            check_crasher_moves.append(move)
+
+                        self.black_pieces[which_piece[0]][which_piece[1]] = old_black_pos
 
         if check_crasher_moves:
             for real_dot in check_crasher_moves:
@@ -161,12 +190,45 @@ class ChessEnv:
 
                 self.first_pawn_moves[side][which_piece[1]] = False
 
+            elif which_piece[0] == "rook" and which_piece[1] == 0:
+
+                self.white_rockable["short"] = False
+
+            elif which_piece[0] == "rook" and which_piece[1] == 1:
+
+                self.white_rockable["long"] = False
+
+            elif which_piece[0] == "king":
+
+                self.white_rockable["short"] = False
+                self.white_rockable["long"] = False
+
+            self.white_possible_moves = self.update_possible_moves(side="white")
+            self.black_possible_moves = self.update_possible_moves(side="black")
+
         else:
 
             self.black_pieces[which_piece[0]][which_piece[1]] = position
 
             if which_piece[0] == "pawn":
+
                 self.first_pawn_moves[side][which_piece[1]] = False
+
+            elif which_piece[0] == "rook" and which_piece[1] == 0:
+
+                self.black_rockable["short"] = False
+
+            elif which_piece[0] == "rook" and which_piece[1] == 1:
+
+                self.black_rockable["long"] = False
+
+            elif which_piece[0] == "king":
+
+                self.black_rockable["short"] = False
+                self.black_rockable["long"] = False
+
+            self.white_possible_moves = self.update_possible_moves(side="white")
+            self.black_possible_moves = self.update_possible_moves(side="black")
 
     def eat_piece(self, side, which_piece, move):
 
@@ -179,6 +241,8 @@ class ChessEnv:
                         if move == position and which_piece[0] != "king":
 
                             self.black_pieces[name][i] = [8,8]
+                            self.white_possible_moves = self.update_possible_moves(side="white")
+                            self.black_possible_moves = self.update_possible_moves(side="black")
 
         else:
 
@@ -189,6 +253,8 @@ class ChessEnv:
                         if move == position and which_piece[0] != "king":
 
                             self.white_pieces[name][i] = [8,8]
+                            self.white_possible_moves = self.update_possible_moves(side="white")
+                            self.black_possible_moves = self.update_possible_moves(side="black")
 
     def available_moves(self, side, event, mouse_pos=None, check=False):
 

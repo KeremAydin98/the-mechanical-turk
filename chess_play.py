@@ -29,20 +29,38 @@ while True:
             if check:
 
                 possible_moves, which_piece = Chess.available_moves(side, event, pos, check=True)
-                possible_moves = Chess.get_rid_of_checks(side=side, possible_moves=possible_moves, which_piece=which_piece)
-                check = False
+                possible_moves = Chess.get_rid_of_checks(side=side, possible_moves=possible_moves, which_piece=which_piece, check_piece=check_piece)
 
             else:
 
                 possible_moves, which_piece = Chess.available_moves(side, event, pos)
 
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             pos = pygame.mouse.get_pos()
             pos = [element / Chess.block_size for element in pos]
 
+            if check and possible_moves:
+                for move in possible_moves:
+                    if math.dist(move, pos) < 0.5:
+
+                        Chess.move_piece(side, which_piece, move)
+                        side_n += 1
+                        possible_moves = None
+
+                        check = False
+
+                        Chess.eat_piece(side, which_piece, move)
+
+                        check = Chess.check_for_check(side=side)
+
+                        if check:
+                            print("CHECK")
+                            check_piece = which_piece
+
+                        break
+
             # Move the piece
-            if possible_moves:
+            elif possible_moves and not check:
                 for direction in possible_moves:
                     for move in direction:
                         if math.dist(move, pos) < 0.5:
@@ -51,6 +69,8 @@ while True:
                             side_n += 1
                             possible_moves = None
 
+                            check = False
+
                             Chess.eat_piece(side, which_piece, move)
 
                             check = Chess.check_for_check(side=side)
@@ -58,6 +78,7 @@ while True:
                             if check:
 
                                 print("CHECK")
+                                check_piece = which_piece
 
                             break
 
