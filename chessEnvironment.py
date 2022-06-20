@@ -89,7 +89,33 @@ class ChessEnv:
 
     def rockin_roll(self, side):
 
-        pass
+        if side == "white":
+
+            rocks = []
+
+            if self.white_rockable["short"]:
+
+                rocks.append([1,7])
+
+            if self.white_rockable["long"]:
+
+                rocks.append([5,7])
+
+            return rocks
+
+        else:
+
+            rocks = []
+
+            if self.black_rockable["short"]:
+
+                rocks.append([1,0])
+
+            if self.black_rockable["long"]:
+
+                rocks.append([5,0])
+
+            return rocks
 
     # looks if there is a check
     def check_for_check(self, side):
@@ -184,6 +210,8 @@ class ChessEnv:
 
         if side == "white":
 
+            old_pos = self.white_pieces[which_piece[0]][which_piece[1]]
+
             self.white_pieces[which_piece[0]][which_piece[1]] = position
 
             if which_piece[0] == "pawn":
@@ -203,10 +231,20 @@ class ChessEnv:
                 self.white_rockable["short"] = False
                 self.white_rockable["long"] = False
 
+            if which_piece[0] == "king" and old_pos == [3,7] and position == [1,7]:
+
+                self.white_pieces["rook"][0] = [2,7]
+
+            elif which_piece[0] == "king" and old_pos == [3,7] and position == [5,7]:
+
+                self.white_pieces["rook"][1] = [4,7]
+
             self.white_possible_moves = self.update_possible_moves(side="white")
             self.black_possible_moves = self.update_possible_moves(side="black")
 
         else:
+
+            old_pos = self.black_pieces[which_piece[0]][which_piece[1]]
 
             self.black_pieces[which_piece[0]][which_piece[1]] = position
 
@@ -226,6 +264,14 @@ class ChessEnv:
 
                 self.black_rockable["short"] = False
                 self.black_rockable["long"] = False
+
+            if which_piece[0] == "king" and old_pos == [3,0] and position == [1,0]:
+
+                self.black_pieces["rook"][0] = [2,0]
+
+            elif which_piece[0] == "king" and old_pos == [3,0] and position == [5,0]:
+
+                self.black_pieces["rook"][0] = [4,0]
 
             self.white_possible_moves = self.update_possible_moves(side="white")
             self.black_possible_moves = self.update_possible_moves(side="black")
@@ -281,8 +327,15 @@ class ChessEnv:
 
                         which_piece = [piece_name, i]
 
+                        if which_piece[0] == "king":
+
+                            if self.rockin_roll(side=side):
+
+                                moving_positions.append(self.rockin_roll(side=side))
+
                 if not check:
                     for direction in moving_positions:
+                        direction = self.dont_get_pass(side, direction, which_piece)
                         for real_dot in direction:
                             # Change the location of the red dot to the center of the square
                             draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
@@ -298,14 +351,22 @@ class ChessEnv:
                     if math.dist(value, mouse_pos) < 0.5:
 
                         all_directions = self.black_possible_moves[piece_name][i]
-                        which_piece = [piece_name, i]
 
                         if all_directions:
                             for directions in all_directions:
                                 moving_positions.append(directions)
 
+                        which_piece = [piece_name, i]
+
+                        if which_piece[0] == "king":
+
+                            if self.rockin_roll(side=side):
+
+                                moving_positions.append(self.rockin_roll(side=side))
+
                 if not check:
                     for direction in moving_positions:
+                        direction = self.dont_get_pass(side, direction, which_piece)
                         for real_dot in direction:
                             # Change the location of the red dot to the center of the square
                             draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
