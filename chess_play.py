@@ -61,8 +61,7 @@ while True:
 
             # Move the piece
             elif possible_moves and not check:
-                for direction in possible_moves:
-                    for move in direction:
+                for move in possible_moves:
                         if math.dist(move, pos) < 0.5:
 
                             Chess.move_piece(side, which_piece, move)

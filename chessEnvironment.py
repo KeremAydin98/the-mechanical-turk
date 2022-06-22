@@ -95,11 +95,33 @@ class ChessEnv:
 
             if self.white_rockable["short"]:
 
-                rocks.append([1,7])
+                rock_move = [1,7]
+                king_moves =[[1,7],[2,7]]
+
+                for king_move in king_moves:
+                    for piece, black_moves in self.black_possible_moves.items():
+                        for moves in black_moves.values():
+                            for move in moves:
+                                if king_move in move:
+                                    rock_move = False
+
+                if rock_move:
+                    rocks.append(rock_move)
 
             if self.white_rockable["long"]:
 
-                rocks.append([5,7])
+                rock_move = [5,7]
+                king_moves = [[4,7],[5,7]]
+
+                for king_move in king_moves:
+                    for piece, black_moves in self.black_possible_moves.items():
+                        for moves in black_moves.values():
+                            for move in moves:
+                                if king_move in move:
+                                    rock_move = False
+
+                if rock_move:
+                    rocks.append(rock_move)
 
             return rocks
 
@@ -109,11 +131,33 @@ class ChessEnv:
 
             if self.black_rockable["short"]:
 
-                rocks.append([1,0])
+                rock_move = [1,0]
+                king_moves = [[1,0],[2,0]]
+
+                for king_move in king_moves:
+                    for piece, white_moves in self.white_possible_moves.items():
+                        for moves in white_moves.values():
+                            for move in moves:
+                                if king_move in move:
+                                    rock_move = False
+
+                if rock_move:
+                    rocks.append(rock_move)
 
             if self.black_rockable["long"]:
 
-                rocks.append([5,0])
+                rock_move = [5, 0]
+                king_moves = [[5,0],[4,0]]
+
+                for king_move in king_moves:
+                    for piece, white_moves in self.white_possible_moves.items():
+                        for moves in white_moves.values():
+                            for move in moves:
+                                if king_move in move:
+                                    rock_move = False
+
+                if rock_move:
+                    rocks.append(rock_move)
 
             return rocks
 
@@ -271,7 +315,7 @@ class ChessEnv:
 
             elif which_piece[0] == "king" and old_pos == [3,0] and position == [5,0]:
 
-                self.black_pieces["rook"][0] = [4,0]
+                self.black_pieces["rook"][1] = [4,0]
 
             self.white_possible_moves = self.update_possible_moves(side="white")
             self.black_possible_moves = self.update_possible_moves(side="black")
@@ -282,25 +326,25 @@ class ChessEnv:
 
             for name, positions in self.black_pieces.items():
 
-                    for i, position in enumerate(positions):
+                for i, position in enumerate(positions):
 
-                        if move == position and which_piece[0] != "king":
+                    if move == position and which_piece[0] != "king":
 
-                            self.black_pieces[name][i] = [8,8]
-                            self.white_possible_moves = self.update_possible_moves(side="white")
-                            self.black_possible_moves = self.update_possible_moves(side="black")
+                        self.black_pieces[name][i] = [8,8]
+                        self.white_possible_moves = self.update_possible_moves(side="white")
+                        self.black_possible_moves = self.update_possible_moves(side="black")
 
         else:
 
             for name, positions in self.white_pieces.items():
 
-                    for i, position in enumerate(positions):
+                for i, position in enumerate(positions):
 
-                        if move == position and which_piece[0] != "king":
+                    if move == position and which_piece[0] != "king":
 
-                            self.white_pieces[name][i] = [8,8]
-                            self.white_possible_moves = self.update_possible_moves(side="white")
-                            self.black_possible_moves = self.update_possible_moves(side="black")
+                        self.white_pieces[name][i] = [8,8]
+                        self.white_possible_moves = self.update_possible_moves(side="white")
+                        self.black_possible_moves = self.update_possible_moves(side="black")
 
     def available_moves(self, side, event, mouse_pos=None, check=False):
 
@@ -311,6 +355,7 @@ class ChessEnv:
             sys.exit()
 
         moving_positions = []
+        final_moves = []
 
         if mouse_pos and side == "white":
 
@@ -333,14 +378,29 @@ class ChessEnv:
 
                                 moving_positions.append(self.rockin_roll(side=side))
 
+                            for king_move in moving_positions:
+                                for piece, black_moves in self.black_possible_moves.items():
+                                    for moves in black_moves.values():
+                                        for move in moves:
+                                            if king_move in move:
+                                                moving_positions.remove(king_move)
+
                 if not check:
                     for direction in moving_positions:
                         direction = self.dont_get_pass(side, direction, which_piece)
                         for real_dot in direction:
-                            # Change the location of the red dot to the center of the square
-                            draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
-                            # Draw circle on the possible moves
-                            pygame.draw.circle(self.game_window, RED, draw_dot, 10)
+
+                            do_it = True
+
+                            if which_piece[0] == "king":
+                                do_it = self.dont_move_king(side, moving_position=real_dot)
+
+                            if do_it:
+                                final_moves.append(real_dot)
+                                # Change the location of the red dot to the center of the square
+                                draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
+                                # Draw circle on the possible moves
+                                pygame.draw.circle(self.game_window, RED, draw_dot, 10)
 
         elif mouse_pos and side == "black":
 
@@ -368,12 +428,43 @@ class ChessEnv:
                     for direction in moving_positions:
                         direction = self.dont_get_pass(side, direction, which_piece)
                         for real_dot in direction:
-                            # Change the location of the red dot to the center of the square
-                            draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
-                            # Draw circle on the possible moves
-                            pygame.draw.circle(self.game_window, RED, draw_dot, 10)
 
-        return moving_positions, which_piece
+                            do_it = True
+
+                            if which_piece[0] == "king":
+
+                                do_it = self.dont_move_king(side, moving_position=real_dot)
+
+                            if do_it:
+                                final_moves.append(real_dot)
+                                # Change the location of the red dot to the center of the square
+                                draw_dot = [element * self.block_size + self.block_size / 2 for element in real_dot]
+                                # Draw circle on the possible moves
+                                pygame.draw.circle(self.game_window, RED, draw_dot, 10)
+
+        return final_moves, which_piece
+
+    def dont_move_king(self, side, moving_position):
+
+        if side == "white":
+
+            for piece, black_moves in self.black_possible_moves.items():
+                for moves in black_moves.values():
+                    for move in moves:
+                        if moving_position in move:
+                            return False
+
+            return True
+
+        else:
+
+            for piece, white_moves in self.white_possible_moves.items():
+                for moves in white_moves.values():
+                    for move in moves:
+                        if moving_position in move:
+                            return False
+
+            return True
 
     # Possible moves are restricted by other pieces
     def dont_get_pass(self, side, direction, which_piece):
@@ -405,11 +496,11 @@ class ChessEnv:
 
             for piece in all_sides:
 
-                if math.dist(dot, piece) < 0.5 and piece in same_side and which_piece[0] != "knight":
+                if math.dist(dot, piece) < 0.5 and piece in same_side and (which_piece[0] != "knight" and which_piece[0] != "king"):
 
                     return ok_red_dots
 
-                elif math.dist(dot, piece) < 0.5 and piece in opp_side and which_piece[0] != "knight":
+                elif math.dist(dot, piece) < 0.5 and piece in opp_side and (which_piece[0] != "knight" and which_piece[0] != "king"):
 
                     if which_piece[0] == "pawn" and self.all_positions[side][which_piece[0]][which_piece[1]][0] == dot[0]:
 
@@ -419,7 +510,7 @@ class ChessEnv:
 
                     return ok_red_dots
 
-                elif math.dist(dot, piece) < 0.5 and piece in same_side and which_piece[0] == "knight":
+                elif math.dist(dot, piece) < 0.5 and piece in same_side and (which_piece[0] == "knight" or which_piece[0] == "king"):
 
                     next_dot = True
 
