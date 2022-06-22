@@ -252,6 +252,8 @@ class ChessEnv:
 
     def move_piece(self, side, which_piece, position):
 
+        en_passant = False
+
         if side == "white":
 
             old_pos = self.white_pieces[which_piece[0]][which_piece[1]]
@@ -261,6 +263,10 @@ class ChessEnv:
             if which_piece[0] == "pawn":
 
                 self.first_pawn_moves[side][which_piece[1]] = False
+
+                if np.abs((np.subtract(old_pos, position))).tolist() == [0,2]:
+
+                    en_passant = which_piece[1]
 
             elif which_piece[0] == "rook" and which_piece[1] == 0:
 
@@ -296,6 +302,9 @@ class ChessEnv:
 
                 self.first_pawn_moves[side][which_piece[1]] = False
 
+                if np.abs((np.subtract(old_pos, position))).tolist() == [0, 2]:
+                    en_passant = which_piece[1]
+
             elif which_piece[0] == "rook" and which_piece[1] == 0:
 
                 self.black_rockable["short"] = False
@@ -320,6 +329,8 @@ class ChessEnv:
             self.white_possible_moves = self.update_possible_moves(side="white")
             self.black_possible_moves = self.update_possible_moves(side="black")
 
+        return en_passant
+
     def eat_piece(self, side, which_piece, move):
 
         if side == "white":
@@ -329,6 +340,12 @@ class ChessEnv:
                 for i, position in enumerate(positions):
 
                     if move == position and which_piece[0] != "king":
+
+                        self.black_pieces[name][i] = [8,8]
+                        self.white_possible_moves = self.update_possible_moves(side="white")
+                        self.black_possible_moves = self.update_possible_moves(side="black")
+
+                    elif which_piece[0] == "pawn" and abs(which_piece[1]-i) == 1 and np.abs(np.subtract(self.black_pieces[name][i],move)).tolist() == [0,1]:
 
                         self.black_pieces[name][i] = [8,8]
                         self.white_possible_moves = self.update_possible_moves(side="white")
@@ -346,7 +363,13 @@ class ChessEnv:
                         self.white_possible_moves = self.update_possible_moves(side="white")
                         self.black_possible_moves = self.update_possible_moves(side="black")
 
-    def available_moves(self, side, event, mouse_pos=None, check=False):
+                    elif which_piece[0] == "pawn" and abs(which_piece[1]-i) == 1 and np.abs(np.subtract(self.white_pieces[name][i], move)).tolist() == [0, 1]:
+
+                        self.white_pieces[name][i] = [8, 8]
+                        self.white_possible_moves = self.update_possible_moves(side="white")
+                        self.black_possible_moves = self.update_possible_moves(side="black")
+
+    def available_moves(self, side, event, mouse_pos=None, check=False, en_passant=False):
 
         which_piece = None
 
@@ -378,16 +401,18 @@ class ChessEnv:
 
                                 moving_positions.append(self.rockin_roll(side=side))
 
-                            for king_move in moving_positions:
-                                for piece, black_moves in self.black_possible_moves.items():
-                                    for moves in black_moves.values():
-                                        for move in moves:
-                                            if king_move in move:
-                                                moving_positions.remove(king_move)
+                        if which_piece[0] == "pawn" and en_passant:
+
+                            white_pawns = [self.white_pieces["pawn"][en_passant+1], self.white_pieces["pawn"][en_passant-1]]
+                            black_pawn = self.black_pieces["pawn"][en_passant]
+
+                            if np.abs(np.subtract(white_pawns[0],black_pawn)).tolist() == [1,0] or np.abs(np.subtract(white_pawns[1],black_pawn)).tolist() == [1,0]:
+
+                                moving_positions.append([np.subtract(black_pawn,[0,1]).tolist()])
 
                 if not check:
                     for direction in moving_positions:
-                        direction = self.dont_get_pass(side, direction, which_piece)
+                        direction = self.dont_get_pass(side, direction, which_piece, en_passant=en_passant)
                         for real_dot in direction:
 
                             do_it = True
@@ -418,6 +443,15 @@ class ChessEnv:
 
                         which_piece = [piece_name, i]
 
+                        if which_piece[0] == "pawn" and en_passant:
+
+                            black_pawns = [self.black_pieces["pawn"][en_passant+1], self.black_pieces["pawn"][en_passant-1]]
+                            white_pawn = self.white_pieces["pawn"][en_passant]
+
+                            if np.abs(np.subtract(black_pawns[0],white_pawn)).tolist() == [1,0] or np.abs(np.subtract(black_pawns[1],white_pawn)).tolist() == [1,0]:
+
+                                moving_positions.append([np.add(white_pawn,[0,1]).tolist()])
+
                         if which_piece[0] == "king":
 
                             if self.rockin_roll(side=side):
@@ -426,7 +460,7 @@ class ChessEnv:
 
                 if not check:
                     for direction in moving_positions:
-                        direction = self.dont_get_pass(side, direction, which_piece)
+                        direction = self.dont_get_pass(side, direction, which_piece, en_passant=en_passant)
                         for real_dot in direction:
 
                             do_it = True
@@ -467,7 +501,7 @@ class ChessEnv:
             return True
 
     # Possible moves are restricted by other pieces
-    def dont_get_pass(self, side, direction, which_piece):
+    def dont_get_pass(self, side, direction, which_piece, en_passant=False):
 
         same_side = []
         opp_side = []
@@ -514,7 +548,7 @@ class ChessEnv:
 
                     next_dot = True
 
-            if which_piece[0] == "pawn" and self.all_positions[side][which_piece[0]][which_piece[1]][0] != dot[0]:
+            if which_piece[0] == "pawn" and self.all_positions[side][which_piece[0]][which_piece[1]][0] != dot[0] and not en_passant:
 
                 return ok_red_dots
 
